@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react"
 import { addPropertyControls, ControlType } from "framer"
 
 // =============================================================================
-// CLOTH HERO - Optimized Framer Component
+// FRAMERCOMPONENT CLOTH - Optimized Framer Component
 // Ready to copy-paste into Framer Code Editor
 // =============================================================================
 
@@ -57,7 +57,7 @@ interface Particle {
     pinned: boolean
 }
 
-interface ClothHeroProps {
+interface FramerComponentClothProps {
     color?: string
     shadingMode?: "wireframe" | "points"
     lineStyle?:
@@ -72,9 +72,6 @@ interface ClothHeroProps {
     gravity?: number
     speed?: number
     resolution?: number
-    rotationSpeedX?: number
-    rotationSpeedY?: number
-    rotationSpeedZ?: number
     pointSize?: number
     lineWidth?: number
     offsetX?: number
@@ -88,10 +85,13 @@ interface ClothHeroProps {
     gradientStart?: string
     gradientEnd?: string
     gradientAngle?: number
+    rotationSpeedX?: number
+    rotationSpeedY?: number
+    rotationSpeedZ?: number
 }
 
 // --- MAIN COMPONENT ---
-export function ClothHero({
+export function FramerComponentCloth({
     color = "#8855ff",
     shadingMode = "wireframe",
     lineStyle = "grid",
@@ -100,9 +100,6 @@ export function ClothHero({
     gravity = 980,
     speed = 1,
     resolution = 20,
-    rotationSpeedX = 0,
-    rotationSpeedY = 0,
-    rotationSpeedZ = 0,
     pointSize = 4,
     lineWidth = 1.5,
     offsetX = 0,
@@ -116,7 +113,10 @@ export function ClothHero({
     gradientStart = "#f0f0f0",
     gradientEnd = "#e0e0e0",
     gradientAngle = 180,
-}: ClothHeroProps): JSX.Element {
+    rotationSpeedX = 0,
+    rotationSpeedY = 0,
+    rotationSpeedZ = 0,
+}: FramerComponentClothProps): JSX.Element {
     const mountRef = useRef<HTMLDivElement>(null)
     const threeLoaded = useThree()
 
@@ -671,7 +671,7 @@ export function ClothHero({
 // FRAMER PROPERTY CONTROLS
 // =============================================================================
 
-addPropertyControls(ClothHero, {
+addPropertyControls(FramerComponentCloth, {
     // --- Appearance ---
     color: {
         type: ControlType.Color,
@@ -884,4 +884,4 @@ addPropertyControls(ClothHero, {
     },
 })
 
-export default ClothHero
+export default FramerComponentCloth
