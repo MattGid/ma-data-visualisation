@@ -519,6 +519,20 @@ export function FramerComponentCloth({
                     }
                 }
             }
+
+            // Update Cursor Light Position
+            if (enableCursorLight && s.cursorLight) {
+                if (hasIntersect) {
+                    s.cursorLight.position.set(ix, iy, iz + 50) // Floating slightly above
+                    s.cursorLight.intensity = params.cursorLightIntensity
+                } else {
+                    // Fade out if no intersection
+                    s.cursorLight.intensity = Math.max(
+                        0,
+                        s.cursorLight.intensity * 0.9
+                    )
+                }
+            }
         }
 
         // --- RENDER LOOP ---
