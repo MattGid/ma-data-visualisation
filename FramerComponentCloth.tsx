@@ -298,7 +298,12 @@ export function FramerComponentCloth({
 
             const geometry = new THREE.CylinderGeometry(0.5, 0.5, 1, 5)
             geometry.rotateX(Math.PI / 2)
-            const material = new THREE.MeshBasicMaterial({ color })
+            const material = new THREE.MeshStandardMaterial({
+                color,
+                roughness: 0.4,
+                metalness: 0.1,
+                flatShading: true
+            })
             clothObject = new THREE.InstancedMesh(
                 geometry,
                 material,
