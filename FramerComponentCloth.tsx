@@ -88,6 +88,10 @@ interface FramerComponentClothProps {
     rotationSpeedX?: number
     rotationSpeedY?: number
     rotationSpeedZ?: number
+    enableCursorLight?: boolean
+    cursorLightColor?: string
+    cursorLightIntensity?: number
+    cursorLightDistance?: number
 }
 
 // --- MAIN COMPONENT ---
@@ -116,6 +120,10 @@ export function FramerComponentCloth({
     rotationSpeedX = 0,
     rotationSpeedY = 0,
     rotationSpeedZ = 0,
+    enableCursorLight = false,
+    cursorLightColor = "#ffffff",
+    cursorLightIntensity = 2,
+    cursorLightDistance = 300,
 }: FramerComponentClothProps): JSX.Element {
     const mountRef = useRef<HTMLDivElement>(null)
     const threeLoaded = useThree()
@@ -131,7 +139,13 @@ export function FramerComponentCloth({
         lineWidth,
         rotateX,
         rotateY,
+        rotateX,
+        rotateY,
         rotateZ,
+        enableCursorLight,
+        cursorLightColor,
+        cursorLightIntensity,
+        cursorLightDistance,
     })
 
     // Update params ref when props change
@@ -147,6 +161,10 @@ export function FramerComponentCloth({
             rotateX,
             rotateY,
             rotateZ,
+            enableCursorLight,
+            cursorLightColor,
+            cursorLightIntensity,
+            cursorLightDistance,
         }
     }, [
         windStrength,
@@ -159,6 +177,10 @@ export function FramerComponentCloth({
         rotateX,
         rotateY,
         rotateZ,
+        enableCursorLight,
+        cursorLightColor,
+        cursorLightIntensity,
+        cursorLightDistance,
     ])
 
     // Scene references
@@ -179,6 +201,7 @@ export function FramerComponentCloth({
         intersectPoint: any
         tempVec: any
         accumulatedRotation: { x: number; y: number; z: number }
+        cursorLight: any
     } | null>(null)
 
     // --- INITIALIZATION EFFECT ---
@@ -214,6 +237,11 @@ export function FramerComponentCloth({
         const blueLight = new THREE.PointLight(0x0044ff, 0.5)
         blueLight.position.set(-200, -100, 100)
         scene.add(blueLight)
+
+        // --- INTERACTIVE CURSOR LIGHT ---
+        const cursorLight = new THREE.PointLight(0xffffff, 0, 0)
+        cursorLight.castShadow = true
+        scene.add(cursorLight)
 
         // --- CLOTH GEOMETRY ---
         const xSegs = resolution
@@ -353,6 +381,7 @@ export function FramerComponentCloth({
             intersectPoint,
             tempVec,
             accumulatedRotation: { x: 0, y: 0, z: 0 },
+            cursorLight,
         }
 
         // --- EVENT HANDLERS ---
@@ -611,6 +640,20 @@ export function FramerComponentCloth({
         camera.lookAt(0, 0, 0)
     }, [view, threeLoaded, shadingMode, lineStyle, resolution])
 
+    // --- CURSOR LIGHT UPDATE ---
+    useEffect(() => {
+        if (!sceneRef.current?.cursorLight) return
+        const { cursorLight } = sceneRef.current
+        cursorLight.color.set(cursorLightColor)
+        cursorLight.intensity = enableCursorLight ? cursorLightIntensity : 0
+        cursorLight.distance = cursorLightDistance
+    }, [
+        enableCursorLight,
+        cursorLightColor,
+        cursorLightIntensity,
+        cursorLightDistance,
+    ])
+
     // --- MATERIAL UPDATE EFFECT ---
     useEffect(() => {
         if (!sceneRef.current?.clothObject) return
@@ -845,6 +888,36 @@ addPropertyControls(FramerComponentCloth, {
         max: 2,
         step: 0.1,
         defaultValue: 0,
+    },
+
+    // --- Interactive Light ---
+    enableCursorLight: {
+        type: ControlType.Boolean,
+        title: "Cursor Light",
+        defaultValue: false,
+    },
+    cursorLightColor: {
+        type: ControlType.Color,
+        title: "Light Color",
+        defaultValue: "#ffffff",
+        hidden: (props) => !props.enableCursorLight,
+    },
+    cursorLightIntensity: {
+        type: ControlType.Number,
+        title: "Intensity",
+        min: 0,
+        max: 5,
+        step: 0.1,
+        defaultValue: 2,
+        hidden: (props) => !props.enableCursorLight,
+    },
+    cursorLightDistance: {
+        type: ControlType.Number,
+        title: "Radius",
+        min: 0,
+        max: 1000,
+        defaultValue: 300,
+        hidden: (props) => !props.enableCursorLight,
     },
 
     // --- Background ---
