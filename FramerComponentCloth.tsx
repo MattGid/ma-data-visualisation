@@ -33,7 +33,7 @@ export default function FramerComponentCloth(props: any) {
     useEffect(() => {
         // Flatten nested props for internal logic
         const p = { ...props }
-        
+
         // Merge structured groups into the flat `p` object for the simulation
         if (props.appearance) Object.assign(p, props.appearance)
         if (props.physics) Object.assign(p, props.physics)
@@ -168,13 +168,53 @@ export default function FramerComponentCloth(props: any) {
 
 
         // --- 3. EVENT LISTENERS ---
-        const onMove = (e: MouseEvent) => {
+        // --- 3. EVENT LISTENERS ---
+        let isDragging = false
+        let draggedParticle: any = null
+
+        const updateMouse = (clientX: number, clientY: number) => {
             const rect = renderer.domElement.getBoundingClientRect()
-            mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1
-            mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1
+            mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1
+            mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1
         }
 
-        // Use ResizeObserver for robust sizing in Framer
+        const onPointerDown = (e: PointerEvent) => {
+            isDragging = true
+            container.setPointerCapture(e.pointerId)
+            updateMouse(e.clientX, e.clientY)
+
+            // Find closest particle to grab
+            raycaster.setFromCamera(mouse, camera)
+            raycaster.ray.intersectPlane(plane, hit)
+
+            let closest = null
+            let minDist = Infinity
+            // Grab radius (squared)
+            const limit = 4000
+
+            for (let pt of particles) {
+                const dx = pt.x - hit.x
+                const dy = pt.y - hit.y
+                const dz = pt.z - hit.z
+                const d2 = dx * dx + dy * dy + dz * dz
+                if (d2 < limit && d2 < minDist) {
+                    minDist = d2
+                    closest = pt
+                }
+            }
+            draggedParticle = closest
+        }
+
+        const onPointerMove = (e: PointerEvent) => {
+            updateMouse(e.clientX, e.clientY)
+        }
+
+        const onPointerUp = (e: PointerEvent) => {
+            isDragging = false
+            draggedParticle = null
+            container.releasePointerCapture(e.pointerId)
+        }
+
         const resizeObserver = new ResizeObserver((entries) => {
             for (let entry of entries) {
                 const { width, height } = entry.contentRect
@@ -185,7 +225,11 @@ export default function FramerComponentCloth(props: any) {
             }
         })
         resizeObserver.observe(container)
-        container.addEventListener("mousemove", onMove)
+
+        container.addEventListener("pointerdown", onPointerDown)
+        container.addEventListener("pointermove", onPointerMove)
+        container.addEventListener("pointerup", onPointerUp)
+        container.addEventListener("pointercancel", onPointerUp)
 
         // --- 4. ANIMATION LOOP ---
         let frameId = 0
@@ -217,7 +261,13 @@ export default function FramerComponentCloth(props: any) {
             // B. Physics
             const time = performance.now() * 0.0005 * (currentProps.speed === undefined ? 1 : currentProps.speed)
             const grav = -(currentProps.gravity === undefined ? 980 : currentProps.gravity) * MASS
-            const wind = (currentProps.windStrength === undefined ? 0.5 : currentProps.windStrength) * 150
+            const baseWind = (currentProps.windStrength === undefined ? 0.5 : currentProps.windStrength) * 50
+            const turb = currentProps.turbulence === undefined ? 1 : currentProps.turbulence
+
+            // Reusable turbulence function (pseudo-noise)
+            const getNoise = (x: number, y: number, t: number) => {
+                return Math.sin(x * 0.01 + t) + Math.sin(y * 0.03 + t * 0.5) * 0.5 + Math.sin(x * 0.05 + y * 0.05 + t * 0.2) * 0.25
+            }
 
             raycaster.setFromCamera(mouse, camera)
             raycaster.ray.intersectPlane(plane, hit)
@@ -226,20 +276,28 @@ export default function FramerComponentCloth(props: any) {
             particles.forEach(pt => {
                 if (pt.pinned) return
 
-                let fx = Math.sin(time + pt.y * 0.02) * Math.sin(time * 0.5 + pt.x * 0.02) * wind
+                const noise = getNoise(pt.x, pt.y, time * 2) * turb
+                const windForce = baseWind * (1 + noise)
+
+                let fx = Math.sin(time * 0.5 + pt.y * 0.01) * windForce + (Math.random() - 0.5) * turb * 10
                 let fy = grav
-                let fz = Math.cos(time + pt.y * 0.02) * wind * 0.67
+                let fz = Math.cos(time * 0.3 + pt.y * 0.01) * windForce + (Math.random() - 0.5) * turb * 10
 
                 // Interaction
-                const dx = pt.x - hit.x
-                const dy = pt.y - hit.y
-                const dz = pt.z - hit.z
-                const d2 = dx * dx + dy * dy + dz * dz
-                if (d2 < 14400) {
-                    const d = Math.sqrt(d2)
-                    const f = (120 - d) * 50 / (d || 1)
-                    fx += dx * f; fy += dy * f; fz += dz * f
+                // Interaction (Grab & Drag)
+                if (draggedParticle === pt) {
+                    // Lock position to mouse
+                    pt.x = hit.x
+                    pt.y = hit.y
+                    pt.z = hit.z
+                    // Reset momentum so it doesn't shoot off when released
+                    pt.px = pt.x
+                    pt.py = pt.y
+                    pt.pz = pt.z
+                    // Cancel other forces
+                    fx = 0; fy = 0; fz = 0
                 }
+
 
                 // Integrate
                 const vx = (pt.x - pt.px) * DAMPING
@@ -309,14 +367,18 @@ export default function FramerComponentCloth(props: any) {
         return () => {
             cancelAnimationFrame(frameId)
             resizeObserver.disconnect()
-            container.removeEventListener("mousemove", onMove)
+            resizeObserver.disconnect()
+            container.removeEventListener("pointerdown", onPointerDown)
+            container.removeEventListener("pointermove", onPointerMove)
+            container.removeEventListener("pointerup", onPointerUp)
+            container.removeEventListener("pointercancel", onPointerUp)
             if (renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement)
             renderer.dispose()
         }
     }, [
-        props.appearance?.resolution, 
-        props.appearance?.shadingMode, 
-        props.appearance?.lineStyle, 
+        props.appearance?.resolution,
+        props.appearance?.shadingMode,
+        props.appearance?.lineStyle,
         props.appearance?.meshSize
     ]) // Re-run init only on structural changes
 
@@ -329,7 +391,9 @@ export default function FramerComponentCloth(props: any) {
                 width: "100%",
                 height: "100%",
                 overflow: "hidden",
-                display: "block" // Ensure it takes space
+                display: "block", // Ensure it takes space
+                touchAction: "none", // Prevent scrolling while dragging
+                cursor: "grab"
             }}
         />
     )
@@ -399,17 +463,22 @@ addPropertyControls(FramerComponentCloth, {
             speed: {
                 type: ControlType.Number,
                 title: "Time Scale",
-                min: 0, max: 3, step: 0.1, defaultValue: 1
+                min: 0, max: 5, step: 0.1, defaultValue: 1
             },
             gravity: {
                 type: ControlType.Number,
                 title: "Gravity",
-                min: 0, max: 2000, step: 10, defaultValue: 980
+                min: 0, max: 3000, step: 10, defaultValue: 980
             },
             windStrength: {
                 type: ControlType.Number,
                 title: "Wind",
-                min: 0, max: 2, step: 0.1, defaultValue: 0.5
+                min: 0, max: 5, step: 0.1, defaultValue: 0.5
+            },
+            turbulence: {
+                type: ControlType.Number,
+                title: "Turbulence",
+                min: 0, max: 5, step: 0.1, defaultValue: 1
             },
         }
     },
