@@ -175,7 +175,12 @@ export const LoomCanvas: React.FC = () => {
                 ]
             });
 
-            // Depth
+            // Initialize canvas dimensions to match CSS before creating depth texture
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = Math.floor(canvas.clientWidth * dpr);
+            canvas.height = Math.floor(canvas.clientHeight * dpr);
+
+            // Depth - now using correctly sized canvas
             depthTexture = device.createTexture({
                 size: [canvas.width, canvas.height],
                 format: 'depth24plus',
@@ -191,10 +196,13 @@ export const LoomCanvas: React.FC = () => {
             lastTime = t;
             if (!device || !p_compute) return;
 
-            // Resize logic
-            if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) {
-                canvas.width = canvas.clientWidth;
-                canvas.height = canvas.clientHeight;
+            // Resize logic - use DPR for proper sizing
+            const dpr = window.devicePixelRatio || 1;
+            const targetWidth = Math.floor(canvas.clientWidth * dpr);
+            const targetHeight = Math.floor(canvas.clientHeight * dpr);
+            if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
+                canvas.width = targetWidth;
+                canvas.height = targetHeight;
                 depthTexture.destroy();
                 depthTexture = device.createTexture({
                     size: [canvas.width, canvas.height],
